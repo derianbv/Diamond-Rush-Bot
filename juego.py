@@ -13,6 +13,7 @@ Las casillas se numeran con un solo entero: indice = fila * columnas + columna.
 Así un Estado es una tupla de enteros y frozensets, que se puede guardar en
 un diccionario (lo necesita el A* para no repetir estados).
 """
+import heapq
 from collections import deque, namedtuple
 
 # ---------------------------------------------------------------------------
@@ -92,6 +93,9 @@ class Nivel:
         self.dist_salida = [min((self.dist[i][s] for s in self.salidas), default=INF)
                             for i in range(filas * columnas)]
 
+        # Memoria de heuristica_agujeros: (peaje, agujeros tapados) -> distancia a la salida de cada casilla
+        self._tablas_peaje = {}
+
     # -----------------------------------------------------------------------
     # Distancias para la heurística
     # -----------------------------------------------------------------------
@@ -141,6 +145,67 @@ class Nivel:
             pos = d
             faltan.discard(d)
         return total + self.dist_salida[pos]
+
+    def _tabla_peaje(self, tapados, peaje):
+        """Distancia de cada casilla a la salida, pero cruzar un agujero SIN tapar
+        cuesta `peaje` pasos extra (es lo que cuesta, más o menos, traer una roca
+        y empujarla hasta ahí). Solo depende de QUÉ agujeros ya están tapados, así
+        que se calcula una vez por combinación y se guarda."""
+        clave = (peaje, tapados)
+        d = self._tablas_peaje.get(clave)
+        if d is None:
+            d = [INF] * (self.filas * self.columnas)
+            cola = []
+            for s in self.salidas:
+                d[s] = 0
+                cola.append((0, s))
+            while cola:                       # Dijkstra desde la(s) salida(s), hacia atrás
+                dd, a = heapq.heappop(cola)
+                if dd > d[a]:
+                    continue
+                costo = 1 + (peaje if self.tipo[a] == AGUJERO and a not in tapados else 0)
+                for b in self.vecino[a].values():
+                    if b >= 0 and self.tipo[b] != PARED and dd + costo < d[b]:
+                        d[b] = dd + costo
+                        heapq.heappush(cola, (dd + costo, b))
+            self._tablas_peaje[clave] = d
+        return d
+
+    def heuristica_agujeros(self, e, peaje):
+        """Como heuristica_tour, pero sabe que los agujeros sin tapar en el camino
+        a la salida hay que rellenarlos con rocas. Sin esto, en un nivel donde la
+        salida está detrás de varios agujeros (nivel 20) la heurística dice "faltan
+        11 pasos" cuando en realidad faltan ~75, y A* se pierde probando
+        combinaciones de rocas sin ninguna guía (no es admisible, como el tour)."""
+        con_peaje = self._tabla_peaje(e.agujeros_llenos, peaje)[e.jugador]
+        if con_peaje >= INF:
+            return INF
+        return self.heuristica_tour(e) + con_peaje - self.dist_salida[e.jugador]
+
+    def agujeros_obligatorios(self, e):
+        """Cuántos agujeros sin tapar hay que rellenar, como mínimo, para llegar a la
+        salida y a todos los diamantes (0 = se puede llegar a todo sin rellenar nada).
+        Mide si el objetivo está "sellado" detrás de agujeros, como en el nivel 20.
+        Es un recorrido 0-1: entrar a un agujero sin tapar cuenta 1, lo demás 0
+        (rocas, puertas y púas se ignoran: es optimista)."""
+        n = self.filas * self.columnas
+        cuenta = [INF] * n
+        cuenta[e.jugador] = 0
+        cola = deque([e.jugador])
+        while cola:
+            a = cola.popleft()
+            for b in self.vecino[a].values():
+                if b < 0 or self.tipo[b] == PARED:
+                    continue
+                c = cuenta[a] + (1 if self.tipo[b] == AGUJERO and b not in e.agujeros_llenos else 0)
+                if c < cuenta[b]:
+                    cuenta[b] = c
+                    # 0-1 BFS: el costo 0 va al frente de la cola, el 1 al final
+                    cola.appendleft(b) if c == cuenta[a] else cola.append(b)
+        a_la_salida = min((cuenta[s] for s in self.salidas), default=INF)
+        if a_la_salida >= INF:
+            return 0  # la salida no se alcanza ni rellenando: eso lo detecta el A*
+        return max([a_la_salida] + [cuenta[d] for d in e.diamantes if cuenta[d] < INF])
 
     def todo_alcanzable(self, e):
         """¿Todavía se puede llegar a todos los diamantes y a la salida, contando
@@ -321,6 +386,9 @@ def construir_nivel(etiquetas, jugador, entra_al_abrir=True, roca_sobre_puas=Tru
     """Crea la parte fija del nivel a partir de la grilla de etiquetas.
     `etiquetas` es una lista de filas; `jugador` es el índice de su casilla."""
     filas, columnas = len(etiquetas), len(etiquetas[0])
+    # Último nivel: si se ve la estatua dorada, ESA es la meta (no hay puerta de
+    # salida) y no hace falta juntar diamantes.
+    estatua = any(et == "objetivo_ultimo_nivel" for fila in etiquetas for et in fila)
     tipo = []
     for f in range(filas):
         for c in range(columnas):
@@ -335,8 +403,12 @@ def construir_nivel(etiquetas, jugador, entra_al_abrir=True, roca_sobre_puas=Tru
                 tipo.append(BOTON)
             elif et in ("puerta_metalica", "puerta_metalica_abierta"):
                 tipo.append(PUERTA_METALICA)
-            elif et in ("puerta_objetivo_cerrada", "puerta_objetivo_abierta", "objetivo_ultimo_nivel"):
+            elif et == "objetivo_ultimo_nivel":
                 tipo.append(SALIDA)
+            elif et in ("puerta_objetivo_cerrada", "puerta_objetivo_abierta"):
+                # Con la estatua en el tablero, una "puerta de salida" es un error de
+                # lectura: no cuenta como meta (se trata como pared, por seguridad).
+                tipo.append(PARED if estatua else SALIDA)
             elif et == "puas_inactivas":
                 tipo.append(PUAS)
             else:  # casilla_vacia, diamante, llave, puerta_llave, roca
@@ -349,7 +421,6 @@ def construir_nivel(etiquetas, jugador, entra_al_abrir=True, roca_sobre_puas=Tru
             tipo[p] = PARED  # puerta sin botón: nunca abre
         puertas = []
 
-    estatua = any(et == "objetivo_ultimo_nivel" for fila in etiquetas for et in fila)
     return Nivel(filas, columnas, tipo, puertas, entra_al_abrir, roca_sobre_puas, roca_sobre_diamante,
                  requiere_diamantes=not estatua)
 
@@ -358,7 +429,16 @@ def construir_estado(nivel, etiquetas, jugador, tiene_llave, previo=None):
     """Arma el Estado (lo que cambia) a partir de lo que se ve en pantalla.
     Si hay un estado `previo` (cuando re-planificamos a mitad del nivel), lo
     usamos para lo que la cámara no puede ver: una llave tapada por una roca,
-    o la púa que está debajo del jugador."""
+    o la púa que está debajo del jugador.
+
+    Una roca puede quedar encima de unas púas: eso NO las activa. Las púas se
+    activan DESPUÉS de que el jugador pasa por encima, apenas se mueve a otra
+    casilla (en el modelo se marcan al entrar, que es equivalente: mientras está
+    encima todavía puede ir hacia cualquier lado).
+
+    Una roca que cae en un agujero lo tapa y desaparece ("agujero_con_roca"). Pero
+    otra roca SÍ puede pasar por encima de un agujero ya tapado, y esa se sigue
+    contando como roca."""
     columnas = nivel.columnas
     rocas, diamantes, llaves, puertas, puas, agujeros = set(), set(), set(), set(), set(), set()
     for f, fila in enumerate(etiquetas):
@@ -370,10 +450,28 @@ def construir_estado(nivel, etiquetas, jugador, tiene_llave, previo=None):
             if t == AGUJERO:
                 if et != "agujero":
                     agujeros.add(i)  # se ve algo encima del agujero: está tapado
+                if et == "roca":
+                    # Agujero ya tapado con OTRA roca encima. La primera roca quedó
+                    # atrapada en el hueco ("agujero_con_roca", no cuenta como roca),
+                    # pero esta segunda sí se puede seguir empujando.
+                    rocas.add(i)
                 continue
             if t == PUAS:
-                if et != "puas_inactivas":
+                # Las púas se activan cuando el jugador pasa por encima y se mueve
+                # a otra casilla. Una roca encima no las activa: la roca se sigue
+                # contando como roca y las púas quedan sin pisar.
+                if et == "puas_activas":
                     puas.add(i)
+                elif et in ("roca", "boton_con_roca"):
+                    rocas.add(i)
+                elif et != "puas_inactivas" and previo is not None:
+                    # La visión no reconoce lo que hay encima (p.ej. aún no hay
+                    # ejemplos de "roca sobre púas"): nos quedamos con lo que ya
+                    # sabíamos de esa casilla.
+                    if i in previo.rocas:
+                        rocas.add(i)
+                    if i in previo.puas_pisadas:
+                        puas.add(i)
                 continue
             if et in ("roca", "boton_con_roca"):
                 rocas.add(i)
