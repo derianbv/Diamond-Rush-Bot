@@ -8,8 +8,10 @@ percibir -> planificar -> actuar -> verificar -> re-planificar.
 Escenarios:
   1. El juego se "come" el 10% de las teclas y usa una regla distinta a la que
      supone el agente (al abrir una puerta de llave el jugador NO entra).
-  2. Nivel 14 del juego: qué botón abre qué puerta está oculto; el agente debe
-     descubrirlo mirando y, si se atasca, reiniciar recordando lo aprendido.
+  2. Niveles 14, 17 y 19 del juego: qué botón abre qué puerta está oculto; el
+     agente debe descubrirlo mirando y, si se atasca, reiniciar recordando lo
+     aprendido. En el 17 además hay que pasar una roca por una puerta abierta, y en
+     el 19 entrar a la puerta de la salida directo desde su botón.
 
 Ejecutar:  python pruebas_simulacion.py
 """
@@ -63,8 +65,42 @@ B..B.M..
 #..R.##K
 ###P####
 """
-# Emparejamiento real visto en el video: puerta (fila, col) <- botón (fila, col)
-PUERTAS_14 = {(2, 1): (9, 0), (3, 6): (6, 3), (5, 2): (5, 7), (9, 5): (9, 3)}
+# Niveles 17 y 19: hay que pasar una roca por una puerta abierta (17) y entrar
+# a la puerta de la salida desde su botón (19).
+NIVEL_17 = """
+########
+..D.^.#K
+D####.#M
+.MKBM.B.
+P##D###D
+.^.R....
+.^.R.###
+.##.###B
+##..R...
+D#^^##.D
+DL..D#L#
+######.E
+"""
+NIVEL_19 = """
+########
+E##K#.D.
+D#..#.#^
+MB..M...
+.##P##..
+.^.D##RD
+.#.....#
+.##R##..
+D.D.#..B
+.####^##
+.L...D.#
+########
+"""
+
+# Emparejamiento real visto en el video (analisis_video/puertas.py):
+# puerta (fila, col) <- botón (fila, col). El agente NO lo conoce: lo descubre jugando.
+PUERTAS_14 = {(2, 1): (5, 7), (3, 6): (6, 3), (5, 2): (9, 0), (9, 5): (9, 3)}
+PUERTAS_17 = {(2, 7): (3, 6), (3, 1): (3, 3), (3, 4): (7, 7)}
+PUERTAS_19 = {(3, 0): (3, 1), (3, 4): (8, 7)}
 
 
 def preparar_sprites(destino):
@@ -189,11 +225,13 @@ def main():
         resultados.append(("teclas perdidas + regla distinta", gano))
         print(f"teclas que el juego ignoró: {j.ignoradas}")
 
-        print("=" * 60, "\nEscenario 2: nivel 14 con emparejamiento de puertas oculto\n" + "=" * 60)
-        j = JuegoSimulado(NIVEL_14, sprites)
-        j.real.candidatos = {pf * 8 + pc: {bf * 8 + bc} for (pf, pc), (bf, bc) in PUERTAS_14.items()}
-        gano = jugar(j, 12, 8)
-        resultados.append(("puertas ocultas (nivel 14)", gano))
+        for numero, texto, puertas in ((14, NIVEL_14, PUERTAS_14), (17, NIVEL_17, PUERTAS_17),
+                                       (19, NIVEL_19, PUERTAS_19)):
+            print("=" * 60, f"\nNivel {numero} con el emparejamiento de puertas oculto\n" + "=" * 60)
+            j = JuegoSimulado(texto, sprites)
+            j.real.candidatos = {pf * 8 + pc: {bf * 8 + bc} for (pf, pc), (bf, bc) in puertas.items()}
+            gano = jugar(j, 12, 8)
+            resultados.append((f"puertas ocultas (nivel {numero})", gano))
 
         print("\n" + "=" * 60)
         for nombre, gano in resultados:

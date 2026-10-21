@@ -18,9 +18,8 @@ solo captura de pantalla y teclado simulado.
 
 Probado con los 20 niveles reales del juego (tableros extraídos del walkthrough en video):
 
-- **19 de 20 niveles resueltos**. La mayoría en menos de 1 s; el más difícil (nivel 6) en ~36 s
-  usando solo 3 procesos, como en un computador de 4 núcleos.
-- El nivel 20 (un puzzle de 21 rocas) no se resuelve dentro del límite de 2 minutos.
+- **20 de 20 niveles resueltos**, la mayoría en menos de 1 s, usando solo 3 procesos (como en un
+  computador de 4 núcleos). El nivel 20 (puzzle de 21 rocas) sale con la heurística de agujeros.
 - La visión lee el tablero en ~8 ms por captura.
 
 ## Inicio rápido

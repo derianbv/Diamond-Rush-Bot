@@ -146,10 +146,10 @@ posible. Las reglas, en el orden en que se revisan:
 | Destino | Regla |
 |---|---|
 | fuera del tablero, pared, púas ya pisadas, agujero sin tapar | no se puede |
-| puerta metálica | solo si está abierta (ver 3.3) |
+| puerta metálica | solo si está abierta (ver 3.3), o si el jugador está parado en su botón y entra en ese mismo paso |
 | salida | se gana si no quedan diamantes; si quedan, está cerrada. **Estatua** del nivel 20: se gana sin juntar diamantes |
 | puerta de llave | necesita llave; se abre, la llave se gasta y (regla `entra_al_abrir_puerta`) el jugador entra en el mismo paso |
-| roca | se empuja si la casilla siguiente lo permite: suelo, botón, llave, diamante (`roca_sobre_diamante`), púas sin pisar (`roca_sobre_puas`) o agujero. Si cae en un agujero lo tapa y desaparece. No puede ir a paredes, salidas, puertas, otras rocas ni púas pisadas |
+| roca | se empuja si la casilla siguiente lo permite: suelo, botón, llave, diamante (`roca_sobre_diamante`), púas sin pisar (`roca_sobre_puas`) o agujero. Si cae en un agujero lo tapa y desaparece. También puede pasar por una puerta metálica abierta. No puede ir a paredes, salidas, puertas cerradas, otras rocas ni púas pisadas |
 | diamante / llave | se recoge (solo una llave a la vez) |
 | púas sin pisar | se pueden pisar **una vez**: al salir quedan bloqueadas |
 
@@ -232,12 +232,25 @@ recorrido (`heuristica_tour`) estima el largo del tour **"siempre al diamante m�
 final a la salida"**. No es admisible (puede sobreestimar), pero está mucho mejor informada y
 encuentra soluciones mucho más rápido, a veces con algunos pasos extra.
 
-### 4.5 A\* ponderado
+### 4.5 Heurística de agujeros
+
+Aporte de los compañeros de equipo (`heuristica_agujeros`): como la de recorrido, pero sabe que
+cada **agujero sin tapar** en el camino a la salida cuesta un "peaje": lo que cuesta, más o
+menos, traer una roca y empujarla hasta ahí (del orden del medio perímetro del tablero). La
+distancia con peaje se calcula con Dijkstra desde la salida, una vez por cada combinación de
+agujeros tapados, y se guarda.
+
+Sin ella, en el nivel 20 (la estatua detrás de varios agujeros y sin diamantes) las otras
+heurísticas se reducen a "distancia a la salida" y el A* se pierde entre millones de
+combinaciones de rocas. Con ella se resuelve en ~12 s. `estrategias_para()` la pone primero solo
+cuando la meta está **sellada** detrás de agujeros (`agujeros_obligatorios() > 0`).
+
+### 4.6 A\* ponderado
 
 Con w > 1 el A\* confía más en la heurística: explora menos y encuentra antes una solución,
 que puede ser un poco más larga (con heurística admisible, a lo más w veces la óptima).
 
-### 4.6 Poda por púas con máscaras de bits
+### 4.7 Poda por púas con máscaras de bits
 
 Pisar una púa puede dejar encerrado un diamante o la salida, y desde ahí el nivel queda sin
 solución. `todo_alcanzable()` revisa, **cada vez que se pisa una púa**, si todavía se llega a
@@ -256,7 +269,7 @@ hasta que deja de crecer. Las máscaras `sin_col0` y `sin_col_ultima` evitan que
 pase de una fila a la siguiente. Antes, esta revisión se hacía casilla por casilla y era cerca de
 la cuarta parte del tiempo del A* en el nivel más pesado. Con bits, ese costo casi desaparece.
 
-### 4.7 Varias estrategias en paralelo
+### 4.8 Varias estrategias en paralelo
 
 En los 20 niveles reales, ninguna combinación (heurística, peso) fue la mejor en todos. Por eso
 `resolver()` corre **varias a la vez**, una por núcleo (núcleos − 1), con `multiprocessing`:
@@ -267,6 +280,7 @@ En los 20 niveles reales, ninguna combinación (heurística, peso) fue la mejor 
 | 2 | admisible, w = 1 | **plan óptimo** (el más corto) cuando termina a tiempo |
 | 3 | recorrido, w = 5 | muy rápida en niveles grandes (15, 16) |
 | 4–6 | recorrido w = 1 y 3, admisible w = 5 | respaldo |
+| (según el nivel) | agujeros, w = 1, 2 y 3 | primero si la meta está detrás de agujeros (nivel 20) |
 
 Con pocos núcleos solo corren las primeras. La búsqueda termina cuando:
 
@@ -373,6 +387,8 @@ Las herramientas están en `analisis_video/`.
 | Las rocas pasan sobre púas | Nivel 14: una roca empujada sobre púas (457,6 s) |
 | El botón no abre la puerta más cercana | Nivel 14: un botón abre una puerta lejana (465,5 s) |
 | El último nivel se gana sin diamantes | Nivel 20 termina con 0/14 |
+| Una roca puede pasar por una puerta metálica abierta | Nivel 17: una roca cruza la puerta (3,4) mientras su botón tiene roca (658,9 s) |
+| Se puede entrar a una puerta desde su botón | Nivel 19: el botón está al lado de la puerta de la salida; la puerta se abre solo un instante y el jugador entra |
 
 `rastrear.py` lee el tablero cuadro a cuadro y anota cada cambio. Así se vio qué botón abre qué
 puerta.
@@ -380,6 +396,15 @@ puerta.
 `movimientos.py` sigue al jugador por su camisa blanca, extrae la secuencia de movimientos y la
 **reproduce en el modelo**: en los niveles 1 y 4 el modelo acepta todos los movimientos y gana
 igual que en el juego, lo que valida las reglas.
+
+`puertas.py` sigue en el tiempo si cada puerta está **abierta** y si cada botón está **presionado**,
+y empareja cada puerta con el botón que más coincide. En el nivel 8 coincide con lo ya conocido
+(100 % y 99 % de los cuadros), lo que valida el método.
+
+Las dos últimas reglas aparecieron al estudiar los niveles con puertas metálicas: con el
+emparejamiento real de botones y puertas que muestra `puertas.py`, el modelo decía que esos
+niveles eran imposibles. Están cubiertas en `pruebas.py` con dos niveles que **solo** se resuelven
+usándolas. El agente no recibe el emparejamiento: lo descubre jugando (3.3).
 
 ---
 
@@ -395,32 +420,31 @@ iniciales de los 20 niveles:
 | 3 | 11 | 0 | 4 | 4 | 63 | 0,3 s |
 | 4 | 6 | 5 | 0 | 0 | 47 | 0,2 s |
 | 5 | 8 | 2 | 1 | 4 | 53 | 0,3 s |
-| 6 | 10 | 2 | 2 | 3 | 99 | 36 s |
+| 6 | 10 | 2 | 2 | 3 | 99 | 26 s |
 | 7 | 8 | 19 | 1 | 0 | 42 | 0,2 s |
 | 8 | 11 | 4 | 1 | 6 | 45 | 0,2 s |
 | 9 | 12 | 3 | 0 | 0 | 49 | 0,2 s |
 | 10 | 10 | 6 | 0 | 6 | 58 | 10 s |
-| 11 | 11 | 4 | 2 | 5 | 84 | 22 s |
-| 12 | 9 | 3 | 1 | 7 | 60 | 0,3 s |
-| 13 | 11 | 1 | 2 | 9 | 62 | 0,6 s |
+| 11 | 11 | 4 | 2 | 5 | 84 | 18 s |
+| 12 | 9 | 3 | 1 | 7 | 60 | 0,2 s |
+| 13 | 11 | 1 | 2 | 9 | 60 | 2 s |
 | 14 | 9 | 3 | 1 | 0 | 53 | 0,2 s |
-| 15 | 7 | 5 | 1 | 5 | 65 | 11 s |
-| 16 | 5 | 3 | 0 | 0 | 98 | 10 s |
-| 17 | 8 | 3 | 2 | 5 | 72 | 10 s |
+| 15 | 7 | 5 | 1 | 5 | 65 | 8 s |
+| 16 | 5 | 3 | 0 | 0 | 98 | 7 s |
+| 17 | 8 | 3 | 2 | 5 | 74 | 10 s |
 | 18 | 14 | 3 | 0 | 3 | 59 | 0,3 s |
-| 19 | 7 | 2 | 1 | 3 | 64 | 0,4 s |
-| 20 | — | 21 | 0 | 0 | sin solución | > 100 s |
+| 19 | 7 | 2 | 1 | 3 | 52 | 0,3 s |
+| 20 | — | 21 | 0 | 0 | 74 | 11 s |
 
 Los niveles de ~10 s ya tenían un plan antes: ese tiempo es la espera por uno más corto
-(`esperar_mejor_plan`).
+(`esperar_mejor_plan`). Los 20 niveles se resuelven.
 
 ---
 
 ## 8. Limitaciones y mejoras posibles
 
-- **Nivel 20**: un puzzle de 21 rocas y varios agujeros en cadena. Se intentó una búsqueda sobre
-  empujes (estilo Sokoban) y no lo resolvió en el tiempo. Ayudaría una heurística que estime
-  cuántas rocas hay que llevar a cada agujero, o detectar rocas "muertas" (trabadas en una esquina).
+- **Nivel 20**: se resuelve gracias a la heurística de agujeros (4.5), pero es el que más depende
+  del peaje elegido; en un computador lento puede acercarse al límite de tiempo.
 - **Regla `entra_al_abrir_puerta`**: no se pudo confirmar con el video. Si el juego hace otra cosa,
   el agente se recupera re-planificando, pero pierde algo de tiempo.
 - **Estados tapados**: lo que está debajo de una roca no se ve. Se mantiene con el estado anterior
@@ -435,9 +459,10 @@ Los niveles de ~10 s ya tenían un plan antes: ese tiempo es la espera por uno m
 | Prueba | Qué comprueba |
 |---|---|
 | `pruebas.py` | Reglas y A* con niveles dibujados en texto, incluidos niveles imposibles que deben dar "sin solución" |
-| `pruebas_simulacion.py` | El agente completo (visión + plan + teclas + verificación) contra un juego simulado que se "come" teclas, usa otra regla para las puertas o esconde el emparejamiento de botones |
+| `pruebas_simulacion.py` | El agente completo (visión + plan + teclas + verificación) contra un juego simulado que se "come" teclas, usa otra regla para las puertas o esconde el emparejamiento de botones (niveles 14, 17 y 19: el agente lo descubre jugando y gana) |
 | `analisis_video/resolver_niveles.py` | El planificador sobre los 20 niveles reales; cada plan se verifica en el modelo |
 | `analisis_video/movimientos.py N` | Reproduce en el modelo los movimientos del walkthrough en el nivel N |
+| `analisis_video/puertas.py N` | Qué botón abre cada puerta en el nivel N, según el video |
 
 **En Linux** (Ubuntu 24.04) pasan las mismas pruebas, y además se probó el agente de punta a punta en
 un servidor X: un juego simulado en una ventana X11, con captura de pantalla real (`mss`) y teclas

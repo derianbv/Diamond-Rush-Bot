@@ -237,8 +237,9 @@ class Nivel:
     # -----------------------------------------------------------------------
     def puerta_abierta(self, puerta, rocas):
         """Una puerta metálica está abierta si su botón tiene una roca encima.
-        (Si el jugador pisa el botón también se abre, pero se cierra apenas se
-        baja, así que nunca le sirve al jugador para cruzar.)"""
+        (Si el jugador pisa el botón también se abre y se cierra apenas se baja:
+        solo le sirve si entra a la puerta directo desde el botón; eso lo
+        revisa `mover`.)"""
         return any(b in rocas for b in self.candidatos.get(puerta, ()))
 
     def observar_puertas(self, rocas, abiertas, jugador):
@@ -258,12 +259,17 @@ class Nivel:
                 cambio = True
         return cambio
 
-    def _roca_puede_ir(self, r, e, rocas):
-        """¿Se puede empujar una roca hacia la casilla r?"""
+    def _roca_puede_ir(self, r, e, rocas, desde):
+        """¿Se puede empujar la roca que está en `desde` hacia la casilla r?"""
         if r < 0:
             return False
         t = self.tipo[r]
-        if t == PARED or t == SALIDA or t == PUERTA_METALICA:
+        if t == PARED or t == SALIDA:
+            return False
+        if t == PUERTA_METALICA and not self.puerta_abierta(r, rocas - {desde}):
+            # Una roca puede pasar por una puerta metálica ABIERTA (nivel 17 del
+            # walkthrough, 658,9 s). Si la roca que se empuja es la que la mantenía
+            # abierta (estaba en su botón), al moverla la puerta se cierra.
             return False
         if t == PUAS and (not self.roca_sobre_puas or r in e.puas_pisadas):
             return False
@@ -291,7 +297,12 @@ class Nivel:
             return None
         if t == PUAS and q in e.puas_pisadas:
             return None
-        if t == PUERTA_METALICA and not self.puerta_abierta(q, e.rocas):
+        if t == PUERTA_METALICA and not (self.puerta_abierta(q, e.rocas)
+                                         or e.jugador in self.candidatos.get(q, ())):
+            # Abierta por una roca en su botón, o porque el jugador está PARADO en
+            # su botón y entra a la puerta en ese mismo paso (nivel 19 del
+            # walkthrough: el botón está al lado de la puerta). Al salir del
+            # botón la puerta se cierra, pero el jugador ya está adentro.
             return None
         if t == SALIDA:
             if e.diamantes and self.requiere_diamantes:
@@ -315,7 +326,7 @@ class Nivel:
         # Empujar roca
         if q in rocas:
             r = self.vecino[q][direccion]
-            if not self._roca_puede_ir(r, e, rocas):
+            if not self._roca_puede_ir(r, e, rocas, q):
                 return None
             rocas = rocas - {q}
             if self.tipo[r] == AGUJERO and r not in agujeros:
@@ -450,10 +461,13 @@ def construir_estado(nivel, etiquetas, jugador, tiene_llave, previo=None):
             if t == AGUJERO:
                 if et != "agujero":
                     agujeros.add(i)  # se ve algo encima del agujero: está tapado
-                if et == "roca":
+                if et == "roca" and previo is not None and i in previo.rocas:
                     # Agujero ya tapado con OTRA roca encima. La primera roca quedó
                     # atrapada en el hueco ("agujero_con_roca", no cuenta como roca),
                     # pero esta segunda sí se puede seguir empujando.
+                    # Solo se cuenta si el modelo sabe que se empujó una roca ahí:
+                    # un agujero tapado se ve casi igual que una roca, y contar una
+                    # roca de más puede dejar el nivel "sin solución".
                     rocas.add(i)
                 continue
             if t == PUAS:

@@ -52,6 +52,22 @@ CASOS = {
         #####.L.E
         #########
     """,
+    # Una roca en el botón abre la puerta M; la otra roca tiene que PASAR por la
+    # puerta abierta para tapar el agujero O que está antes de la salida (nivel 17).
+    "roca por puerta abierta": """
+        ##########
+        #P.R.MO.E#
+        #.########
+        #.R.B#####
+        ##########
+    """,
+    # El botón B está al lado de la puerta M: el jugador lo pisa y entra a la
+    # puerta en el mismo paso (nivel 19).
+    "entrar a la puerta desde su boton": """
+        #######
+        #P.BME#
+        #######
+    """,
 }
 
 # Casos que deben resultar IMPOSIBLES con estas reglas

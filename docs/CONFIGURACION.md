@@ -122,7 +122,7 @@ si salió bien: `S` sigue, `r` repite. Con ENTER se elige la opción que aparece
 
 ### 4.1 Revisar instalación
 
-Comprueba las librerías y ejecuta las pruebas internas. Debe terminar en `8/8 pruebas correctas`.
+Comprueba las librerías y ejecuta las pruebas internas. Debe terminar en `10/10 pruebas correctas`.
 
 ### 4.2 Abrir el juego
 
