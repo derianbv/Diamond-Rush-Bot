@@ -1,0 +1,17 @@
+# Video del walkthrough: no va al repositorio (se usa solo para analisis_video/)
+*.mp4
+
+# Entornos de Python (se crean con INICIAR.bat en cada computador)
+.venv/
+.drEnv/
+__pycache__/
+*.pyc
+
+# Datos propios de cada computador
+config.json
+capturas/
+plantillas_descartadas/
+plantillas_respaldo_*/
+
+# Salida intermedia del análisis del video
+analisis_video/salida/

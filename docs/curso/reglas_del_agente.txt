@@ -1,0 +1,30 @@
+
+
+
+- desde que se oprime la tecla, lo importante es el tiempo desde que se oprime una tecla y se termina el nivel 
+- 2 minutos de procesamiento de nivel 
+
+- nivel en: https://www.minijuegos.com/juego/diamond-rush
+Reglas del profesor: 
+Se debe desarrollar un agente inteligente que juegue diamond rush enhttps://www.minijuegos.com/juego/diamond-rush. Las restricciones impuestas por el profesor son las siguientes:
+
+1. Cada agente correrá en un computador independiente y se conectará al juego en el momento del torneo en el nivel que el profesor determine en cada ronda.
+2. Cada agente puede usar las herramientas de software que se consideren necesarias y/o suficientes. 
+3. El agente debe ser capaz de procesar la pantalla con el juego en web (no se puede realizar hacks al juego, webscrapping, ni bajar a una versión en computador), simular el teclado y jugar el juego.
+4. Todos los estudiantes deben definir y aceptar las reglas adicionales que se usarán para el juego en un acuerdo que le deben enviar al profesor a más tardar el 14 de Octubre de 2026
+5. El torneo se realizará el miércoles 21 de Octubre de 2026 usando un sistema suizo de 5 rondas. La nota será definida a partir de los resultados obtenidos.
+
+# Misc
+
+- Espacio 10 x 15
+- 19 niveles
+- Escalera de fin de nivel: el ultimo punto al que se debe llegar para pasar el nivel
+- Diamantes. Se deben coleccionar todos en un nivel para abrir el acceso a la escalera
+- Puerta: NEcesita de un boton o una llave para abrirse
+- Puas: al cruzar esta casilla, no se puede volver a acceder, se vuelve un objeto bloqueante.
+- Llave: Solo se puede llevar una a la vez, se recoge, yse usa para abrir puertas
+- Puertas de llave: Necesita exclusivamente de una llave para abrirse
+- Rocas de empujar: Se mueven en la dirección en la que el personaje avanza  hacia ellas, se usan para presionar botones o cubrir agujeros
+- Agujeros: Un objeto bloqueante, a menos que se ponga una roca en su misma posición en cuyo caso se vuelve caminable
+- Botones : Activa puertas
+- Puertas de botones: Solo activables por puertas
