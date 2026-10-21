@@ -1,6 +1,6 @@
 # Agente inteligente para Diamond Rush
 
-Agente que juega solo [Diamond Rush](https://www.minijuegos.com/juego/diamond-rush) en el navegador:
+Agente que juega solo (en Windows o Linux) [Diamond Rush](https://www.minijuegos.com/juego/diamond-rush) en el navegador:
 **mira la pantalla**, entiende el tablero, **calcula con A\*** la secuencia de movimientos y
 **presiona las teclas**, verificando con la vista cada paso y re-planificando si algo sale distinto.
 
@@ -23,7 +23,7 @@ Probado con los 20 niveles reales del juego (tableros extraídos del walkthrough
 - El nivel 20 (un puzzle de 21 rocas) no se resuelve dentro del límite de 2 minutos.
 - La visión lee el tablero en ~8 ms por captura.
 
-## Inicio rápido (Windows)
+## Inicio rápido
 
 1. Instalar [Python 3.10 o más nuevo](https://www.python.org/downloads/) marcando *"Add Python to PATH"*.
 2. Descargar este repositorio y hacer doble clic en **`INICIAR.bat`**. La primera vez instala todo
@@ -31,6 +31,9 @@ Probado con los 20 niveles reales del juego (tableros extraídos del walkthrough
 3. Abrir el juego en el navegador y, en el menú, usar **6** (configuración completa) la primera vez:
    lo único obligatorio es **calibrar** dónde está el juego en esa pantalla.
 4. Para jugar: **1**, ir al navegador y presionar **F8** con el nivel listo.
+
+**En Linux** es igual, pero se arranca con `./iniciar.sh` desde una terminal, y el escritorio debe estar
+en sesión **Xorg** (no Wayland). Detalles en la sección 1.4 de la guía.
 
 La guía detallada está en [docs/Guia_de_configuracion.pdf](docs/Guia_de_configuracion.pdf).
 
@@ -50,13 +53,13 @@ Los PDF se generan desde [docs/CONFIGURACION.md](docs/CONFIGURACION.md) y
 
 | Archivo / carpeta | Qué es |
 |---|---|
-| `INICIAR.bat` | Instala el entorno (si hace falta) y abre el menú |
+| `INICIAR.bat` / `iniciar.sh` | Instala el entorno (si hace falta) y abre el menú, en Windows / Linux |
 | `asistente.py` | Menú y asistentes de configuración |
 | `agente.py` | Ciclo del agente: percibir → planificar → actuar → verificar |
 | `vision.py` | Captura de pantalla y clasificación de casillas |
 | `juego.py` | Modelo del juego: tablero, estado y reglas de movimiento |
 | `solver.py` | Búsqueda A* (varias estrategias en paralelo) |
-| `controles.py` | Teclado y mouse simulados (SendInput de Windows) |
+| `controles.py` | Teclado y mouse simulados: `controles_windows.py` (SendInput) o `controles_linux.py` (XTest) |
 | `herramientas.py` | Ventanas de calibración, etiquetado y revisión de ejemplos |
 | `objetos.py`, `objetos.json` | Objetos creados por el usuario en el etiquetador |
 | `config.py` | Valores por defecto (cada computador guarda los suyos en `config.json`) |
@@ -64,8 +67,8 @@ Los PDF se generan desde [docs/CONFIGURACION.md](docs/CONFIGURACION.md) y
 | `pruebas.py` | Pruebas de las reglas y del A* con niveles dibujados en texto |
 | `pruebas_simulacion.py` | Pruebas del agente completo contra un juego simulado |
 | `analisis_video/` | Herramientas usadas para estudiar el walkthrough y los 20 tableros de prueba |
-| `paquetes/` | Librerías (OpenCV, NumPy, mss) para Python 3.10–3.13: instalación sin internet |
-| `descargar_paquetes.bat` | Vuelve a crear `paquetes/` si hiciera falta |
+| `paquetes/` | Librerías para Windows y Linux, Python 3.10–3.13: instalación sin internet |
+| `descargar_paquetes.bat` / `.sh` | Vuelve a crear `paquetes/` si hiciera falta |
 | `prototipos/` | Primeras versiones del código de captura |
 
 ## Pruebas

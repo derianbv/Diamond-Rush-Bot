@@ -1,7 +1,7 @@
 # Configurar el agente en cualquier computador
 
 Guía paso a paso para dejar el agente funcionando en un computador nuevo, por ejemplo
-el del torneo o el de la universidad. Toma unos 10 minutos la primera vez.
+el del torneo o el de la universidad, con **Windows o Linux**. Toma unos 10 minutos la primera vez.
 
 ---
 
@@ -9,7 +9,7 @@ el del torneo o el de la universidad. Toma unos 10 minutos la primera vez.
 
 | Requisito | Detalle |
 |---|---|
-| Sistema | Windows 10 u 11 de 64 bits |
+| Sistema | Windows 10 u 11 de 64 bits, o **Linux** de 64 bits con escritorio en sesión **Xorg** (ver 1.4) |
 | Python | 3.10, 3.11, 3.12 o 3.13 |
 | Navegador | Chrome, Edge o Firefox, con el juego abierto: <https://www.minijuegos.com/juego/diamond-rush> |
 | Internet | No hace falta: las librerías vienen incluidas en `paquetes/` (ver el paso 1.3) |
@@ -49,13 +49,29 @@ El agente viene **listo para usar**:
 
 `INICIAR.bat` instala desde `paquetes/` y, solo si no puede (por ejemplo, con una versión de
 Python que no está incluida), descarga de internet. Si alguna vez falta `paquetes/`,
-`descargar_paquetes.bat` la vuelve a crear en un computador con internet.
+`descargar_paquetes.bat` (o `descargar_paquetes.sh` en Linux) la vuelve a crear en un computador con
+internet. Trae librerías para Windows y para Linux.
+
+### 1.4 En Linux
+
+El agente funciona igual en Linux (probado en Ubuntu 24.04). Diferencias:
+
+- **Sesión Xorg, no Wayland.** En Wayland ningún programa puede capturar la pantalla ni enviar
+  teclas a otras ventanas. En Ubuntu: cerrar sesión y, en la pantalla de inicio, elegir
+  **"Ubuntu en Xorg"** con el ícono de engranaje. `iniciar.sh` avisa si la sesión es Wayland.
+- **Python y venv**: `sudo apt install python3 python3-venv` (Ubuntu/Debian).
+- **Arranque**: en una terminal, dentro de la carpeta del agente, `./iniciar.sh`
+  (o `bash iniciar.sh`). Es el equivalente de `INICIAR.bat`.
+- Si aparece *"OpenCV no carga"*: `sudo apt install libgl1 libglib2.0-0`.
+- La terminal se minimiza sola en las terminales más comunes (GNOME, Konsole, xterm…). Si la tuya
+  no lo hace, ponla donde no tape el juego.
+- Las teclas se envían con la extensión **XTest** de X11 y F8/F9 funcionan igual que en Windows.
 
 ---
 
 ## 2. Primera ejecución
 
-Hacer doble clic en **`INICIAR.bat`**. La primera vez muestra:
+Hacer doble clic en **`INICIAR.bat`** (en Linux: `./iniciar.sh` en una terminal). La primera vez muestra:
 
 ```
 Primera vez en este computador: creando el entorno de Python...
@@ -250,6 +266,9 @@ Consejos:
 | Muchas casillas `?` o diamantes de menos | Recalibrar (4); si sigue, re-entrenar (5) con esas casillas |
 | El personaje no se mueve | Opción 3: el agente prueba otras formas de enviar teclas. Hacer clic una vez dentro del juego y usar F8 desde el navegador |
 | La grilla queda corrida | En la calibración, `f` (auto-ajuste) y luego `w a s d` / `j l i k` |
+| Linux: *"la sesión es Wayland"* | Cerrar sesión y entrar con "Ubuntu en Xorg" (paso 1.4) |
+| Linux: *"No se pudo crear el entorno"* | `sudo apt install python3-venv` |
+| Linux: *"OpenCV no carga"* | `sudo apt install libgl1 libglib2.0-0` |
 | La escala de Windows es 125 % o 150 % | Funciona igual, pero calibra **después** de elegir la escala y no la cambies |
 | Hay dos monitores | El juego debe estar en el monitor principal (o cambiar `"monitor"` en `config.json`) |
 | `SIN SOLUCIÓN` en un nivel empezado | El nivel quedó trabado (por ejemplo, una roca mal empujada): el agente reinicia el nivel una vez |
@@ -277,7 +296,7 @@ Consejos:
 
 ## 9. Uso sin menú (línea de comandos)
 
-Desde la carpeta del agente:
+Desde la carpeta del agente (en Linux, cambiar `.venv\Scripts\python` por `.venv/bin/python`):
 
 ```powershell
 .venv\Scripts\python agente.py calibrar     # marcar el juego en pantalla

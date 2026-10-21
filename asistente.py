@@ -351,19 +351,34 @@ def correr(secuencia):
 # tiempo importa). Las opciones de preparación usan los pasos guiados de arriba.
 # ---------------------------------------------------------------------------
 def leer_tecla(validas):
-    """Lee UNA tecla sin necesidad de ENTER (en Windows)."""
+    """Lee UNA tecla sin necesidad de ENTER (en Windows y en la terminal de Linux)."""
     try:
-        import msvcrt
+        import msvcrt  # Windows
         while True:
             ch = msvcrt.getwch().lower()
             if ch in validas:
                 print(ch)
                 return ch
     except ImportError:
-        while True:
-            ch = input().strip().lower()[:1]
-            if ch in validas:
-                return ch
+        pass
+    if sys.stdin.isatty():
+        import termios  # Linux / macOS: modo "una tecla a la vez"
+        import tty
+        fd = sys.stdin.fileno()
+        anterior = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            while True:
+                ch = sys.stdin.read(1).lower()
+                if ch in validas:
+                    print(ch)
+                    return ch
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, anterior)
+    while True:  # sin terminal interactiva: leer una línea
+        ch = input().strip().lower()[:1]
+        if ch in validas:
+            return ch
 
 
 def ejecutar_rapido(*args):

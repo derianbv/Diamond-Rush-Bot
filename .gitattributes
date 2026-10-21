@@ -4,3 +4,5 @@
 *.png binary
 *.pdf binary
 *.whl binary
+# Los .sh necesitan finales de línea de Linux
+*.sh text eol=lf

@@ -12,7 +12,7 @@ import numpy as np
 
 import config
 import objetos
-from controles import minimizar, restaurar
+from controles import ancho_pantalla, minimizar, restaurar
 from juego import SIMBOLO
 from vision import Capturador, capturar_monitor, cortar_celdas, crear_clasificador, guardar_plantilla
 
@@ -271,12 +271,7 @@ def etiquetar(cfg, consola=None):
 
     # Tamaño y posición de la ventana: al lado del juego, sin taparlo.
     x, y, w, h = cfg["roi"]
-    try:
-        import ctypes
-        ancho_pantalla = ctypes.windll.user32.GetSystemMetrics(0)
-    except Exception:
-        ancho_pantalla = 1920
-    espacio_der = ancho_pantalla - (x + w) - 20
+    espacio_der = ancho_pantalla() - (x + w) - 20
     espacio_izq = x - 20
     espacio = max(espacio_der, espacio_izq)
     escala = max(0.6, min(2.0, 700 / h, (espacio - ANCHO_PANEL) / w))

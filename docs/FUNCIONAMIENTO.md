@@ -31,7 +31,7 @@ El agente es un **agente basado en objetivos con planificación**. En cada nivel
 |---|---|
 | **Medida de desempeño** | Completar el nivel en el menor tiempo desde la primera tecla (menos movimientos, sin errores) |
 | **Entorno** | Tablero discreto de 8 × 12 casillas, determinista, totalmente observable salvo excepciones (qué botón abre qué puerta, objetos tapados por rocas) |
-| **Actuadores** | Flechas del teclado y clic (SendInput de Windows) |
+| **Actuadores** | Flechas del teclado y clic (SendInput en Windows, XTest en Linux) |
 | **Sensores** | Captura de la zona del juego en pantalla (`mss`) |
 
 ### Módulos
@@ -42,7 +42,9 @@ El agente es un **agente basado en objetivos con planificación**. En cada nivel
 | `juego.py` | `Nivel` (parte fija + reglas), `Estado` (parte variable), heurísticas, construcción desde la lectura |
 | `solver.py` | A* y ejecución de varias estrategias en paralelo |
 | `agente.py` | Ciclo percibir → planificar → actuar → verificar; re-planificación, reinicios, detección del método de teclas |
-| `controles.py` | Teclado y mouse simulados, teclas globales (F8/F9), manejo de la ventana de la consola |
+| `controles.py` | Elige la implementación según el sistema operativo |
+| `controles_windows.py` | Teclado y mouse simulados con SendInput, teclas globales (F8/F9), ventana de la consola |
+| `controles_linux.py` | Lo mismo en Linux, con la extensión XTest de X11 (`python-xlib`) |
 | `herramientas.py` | Calibración, etiquetado, galería de ejemplos |
 | `objetos.py` | Objetos definidos por el usuario ("se comporta como…") |
 
@@ -295,6 +297,17 @@ se guarda en `config.json`.
 **F8**: el agente espera la tecla F8 con `GetAsyncKeyState`, que funciona aunque la ventana
 activa sea el navegador. Así el juego ya tiene el foco cuando empieza.
 
+**Linux** (`controles_linux.py`): las mismas funciones con la extensión **XTest** de X11 a través de
+`python-xlib` (Python puro, no hay que compilar nada). `fake_input` simula teclas y clics; F8/F9
+se detectan consultando el mapa de teclas presionadas del servidor X (`query_keymap`) y quedándose
+con el paso de "suelta" a "presionada"; la terminal se minimiza con los mensajes estándar de los
+gestores de ventanas (`WM_CHANGE_STATE`, `_NET_ACTIVE_WINDOW`). Necesita una sesión Xorg: en Wayland
+ningún programa puede capturar la pantalla ni enviar teclas a otras ventanas.
+
+`controles.py` solo elige la implementación según el sistema, así que el resto del agente es el
+mismo en Windows y en Linux. El planificador en paralelo (`multiprocessing`) y la captura (`mss`)
+ya funcionan en los dos.
+
 ### 5.2 Sincronización con el juego
 
 No se usan pausas fijas. Después de cada tecla, `esperar_jugador()` lee la pantalla hasta **ver al
@@ -425,3 +438,7 @@ Los niveles de ~10 s ya tenían un plan antes: ese tiempo es la espera por uno m
 | `pruebas_simulacion.py` | El agente completo (visión + plan + teclas + verificación) contra un juego simulado que se "come" teclas, usa otra regla para las puertas o esconde el emparejamiento de botones |
 | `analisis_video/resolver_niveles.py` | El planificador sobre los 20 niveles reales; cada plan se verifica en el modelo |
 | `analisis_video/movimientos.py N` | Reproduce en el modelo los movimientos del walkthrough en el nivel N |
+
+**En Linux** (Ubuntu 24.04) pasan las mismas pruebas, y además se probó el agente de punta a punta en
+un servidor X: un juego simulado en una ventana X11, con captura de pantalla real (`mss`) y teclas
+reales (XTest). El agente leyó el tablero sin errores, planificó y ganó enviando 13 teclas.
