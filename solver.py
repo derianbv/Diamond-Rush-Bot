@@ -11,6 +11,12 @@ Dos heurísticas:
   * "recorrido": largo del tour 'diamante más cercano primero' (más
     informada, no admisible). Encuentra soluciones mucho más rápido.
 
+  * "agujeros": como "recorrido", pero sabe que cada agujero sin tapar en el
+    camino a la salida cuesta rellenarlo con una roca. Es la que resuelve
+    niveles tipo "puzle de rocas" (nivel 20: la estatua está detrás de 4
+    agujeros y no hay diamantes, así que las otras dos heurísticas se reducen a
+    "distancia a la salida" y A* se pierde entre millones de combinaciones de rocas).
+
 Ninguna combinación (heurística, peso) gana en todos los niveles (lo medimos
 con los 20 niveles del walkthrough), así que se corren VARIAS EN PARALELO,
 una por núcleo del procesador, y nos quedamos con el plan más corto.
@@ -25,7 +31,7 @@ import multiprocessing
 import os
 import time
 
-from juego import DIRECCIONES, INF
+from juego import AGUJERO, DIRECCIONES, INF
 
 ORDEN = tuple(DIRECCIONES)
 
@@ -43,6 +49,53 @@ ESTRATEGIAS = [
     ("recorrido", 3.0),
     ("admisible", 5.0),
 ]
+
+
+def _hay_agujeros_por_tapar(nivel, inicio):
+    return any(t == AGUJERO and i not in inicio.agujeros_llenos for i, t in enumerate(nivel.tipo))
+
+
+def estrategias_para(nivel, inicio):
+    """Las estrategias a probar, en orden de prioridad, según cómo es el nivel.
+    (Con pocos núcleos solo corren las primeras, por eso el orden importa.)"""
+    lista = list(ESTRATEGIAS)
+    if inicio.rocas and _hay_agujeros_por_tapar(nivel, inicio):
+        if nivel.agujeros_obligatorios(inicio) > 0:
+            # La meta (o algún diamante) está SELLADA detrás de agujeros: hay que
+            # rellenarlos con rocas sí o sí. Las heurísticas que lo saben van primero
+            # (la de peso 2 después de la óptima, para no quitarle su lugar a las que
+            # ya funcionaban en los niveles con diamantes).
+            lista.insert(0, ("agujeros", 1.0))
+            lista.insert(3, ("agujeros_medio", 2.0))
+            lista.append(("agujeros", 3.0))
+        else:
+            # Los agujeros se pueden esquivar: el orden de siempre, y las nuevas al
+            # final por si el camino fácil resulta no servir (y hay núcleos de sobra).
+            lista += [("agujeros", 1.0), ("agujeros_medio", 2.0)]
+    if not inicio.diamantes:
+        # Sin diamantes "admisible" y "recorrido" son la MISMA heurística: no
+        # tiene sentido gastar un núcleo en repetir una estrategia.
+        vistas, unicas = set(), []
+        for nombre, peso in lista:
+            clave = ("recorrido" if nombre == "admisible" else nombre, peso)
+            if clave not in vistas:
+                vistas.add(clave)
+                unicas.append((nombre, peso))
+        lista = unicas
+    return lista
+
+
+def _heuristica(nivel, nombre):
+    if nombre == "admisible":
+        return nivel.heuristica
+    if nombre == "recorrido":
+        return nivel.heuristica_tour
+    # "agujeros": peaje = lo que cuesta traer una roca a un agujero, del orden del
+    # "medio perímetro" del tablero. "agujeros_medio": la mitad (más optimista).
+    peaje = nivel.filas + nivel.columnas
+    if nombre == "agujeros_medio":
+        peaje //= 2
+    return lambda e: nivel.heuristica_agujeros(e, peaje)
 
 
 def _a_estrella(nivel, inicio, peso, heuristica, hora_limite):
@@ -103,7 +156,7 @@ def _reconstruir(padre, e):
 
 def _correr(nivel, inicio, nombre, peso, segundos):
     """Una estrategia. Se ejecuta en un proceso aparte."""
-    h = nivel.heuristica if nombre == "admisible" else nivel.heuristica_tour
+    h = _heuristica(nivel, nombre)
     t = time.perf_counter()
     estado, plan, expandidos = _a_estrella(nivel, inicio, peso, h, t + segundos)
     return nombre, peso, estado, plan, expandidos, time.perf_counter() - t
@@ -122,11 +175,12 @@ def resolver(nivel, inicio, limite_segundos=100.0, verbose=True, paralelo=True, 
 def _resolver_secuencial(nivel, inicio, limite_segundos, verbose):
     t0 = time.perf_counter()
     fin = t0 + limite_segundos
-    for k, (nombre, peso) in enumerate(ESTRATEGIAS):
+    estrategias = estrategias_para(nivel, inicio)
+    for k, (nombre, peso) in enumerate(estrategias):
         restante = fin - time.perf_counter()
         if restante <= 0:
             break
-        parte = restante if k == len(ESTRATEGIAS) - 1 else restante * 0.35
+        parte = restante if k == len(estrategias) - 1 else restante * 0.35
         _, _, estado, plan, expandidos, dt = _correr(nivel, inicio, nombre, peso, parte)
         if verbose:
             print(f"  A* ({nombre}, peso={peso}): {estado}, {expandidos} nodos, {dt:.2f}s"
@@ -139,7 +193,7 @@ def _resolver_secuencial(nivel, inicio, limite_segundos, verbose):
 
 
 def _resolver_paralelo(nivel, inicio, limite_segundos, verbose, espera_mejor, nucleos):
-    estrategias = ESTRATEGIAS[:nucleos]
+    estrategias = estrategias_para(nivel, inicio)[:nucleos]
     t0 = time.perf_counter()
     resultados = []
     pool = multiprocessing.get_context("spawn").Pool(len(estrategias))
